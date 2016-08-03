@@ -19,7 +19,7 @@
 			return $this->createFieldTable();
 		}
 
-		public function update($prev_version) {
+		public function update($previousVersion = false) {
 			return true;
 		}
 
