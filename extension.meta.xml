@@ -25,6 +25,7 @@
 
 	<releases>
 		<release version="1.0.2" date="2016-08-04" min="2.6.x" max="2.x.x">
+			- Supported on PHP 7.
 			- Fixed parameter to fit the parent method.
 			- Fixed update method.
 		</release>
