@@ -24,7 +24,7 @@
 	</dependencies>
 
 	<releases>
-		<release version="1.0.2" date="2016-05-17" min="2.6.x" max="2.x.x">
+		<release version="1.0.2" date="2016-08-04" min="2.6.x" max="2.x.x">
 			- Fixed parameter to fit the parent method.
 			- Fixed update method.
 		</release>
