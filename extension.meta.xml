@@ -20,10 +20,14 @@
 	</authors>
 
 	<dependencies>
-		<dependency version="2.6.x">https://github.com/DeuxHuitHuit/frontend_localisation</dependency>
+		<dependency version="2.6.x">frontend_localisation</dependency>
 	</dependencies>
 
 	<releases>
+		<release version="2.0.0" date="TBA" min="4.0.0" max="4.x.x" php-min="5.6.x" php-max="7.x.x">
+			- Update for Symphony 4.x
+			- Code refactoring for Database and EQFA
+		</release>
 		<release version="1.0.4" date="2017-08-22" min="2.6.x" max="2.x.x">
 			- Fix problem with default state always on
 		</release>

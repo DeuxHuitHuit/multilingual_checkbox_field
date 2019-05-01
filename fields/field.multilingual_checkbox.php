@@ -5,6 +5,7 @@
 	}
 
 	require_once(EXTENSIONS . '/frontend_localisation/lib/class.FLang.php');
+	require_once(EXTENSIONS . '/multilingual_checkbox_field/lib/class.entryquerymultilingualcheckboxadapter.php');
 
 	Class fieldMultilingual_CheckBox extends FieldCheckbox {
 
@@ -15,6 +16,7 @@
 		public function __construct()
 		{
 			parent::__construct();
+			$this->entryQueryFieldAdapter = new EntryQueryMultilingualCheckboxAdapter($this);
 
 			$this->_name = 'Multilingual Checkbox';
 		}
@@ -23,7 +25,11 @@
 		{
 			$cols = array();
 			foreach (FLang::getLangs() as $lc) {
-				$cols[] = " `value-{$lc}` ENUM('yes', 'no') DEFAULT 'no',";
+				$cols['value-' . $lc] = [
+					'type' => 'enum',
+					'values' => ['yes', 'no'],
+					'default' => 'no',
+				];
 			}
 			return $cols;
 		}
@@ -32,34 +38,35 @@
 		{
 			$keys = array();
 			foreach (FLang::getLangs() as $lc) {
-				$keys[] = " KEY `value-{$lc}` (`value-{$lc}`),";
+				$keys['value-' . $lc] = 'key';
 			}
 			return $keys;
 		}
 
 		public function createTable()
 		{
-			$field_id = $this->get('id');
-
-			$query = "
-				CREATE TABLE IF NOT EXISTS `tbl_entries_data_{$field_id}` (
-					`id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
-					`entry_id` INT(11) UNSIGNED NOT NULL,
-					`value` ENUM('yes', 'no') DEFAULT 'no',";
-
-			$query .= implode('', self::generateTableColumns());
-
-			$query .= "
-					PRIMARY KEY (`id`),
-					UNIQUE KEY `entry_id` (`entry_id`), ";
-
-			$query .= implode('', self::generateTableKeys());
-
-			$query .= "
-					KEY `value` (`value`)
-				) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;";
-
-			return Symphony::Database()->query($query);
+			return Symphony::Database()
+				->create('tbl_entries_data_' . $this->get('id'))
+				->ifNotExists()
+				->fields(array_merge([
+					'id' => [
+						'type' => 'int(11)',
+						'auto' => true,
+					],
+					'entry_id' => 'int(11)',
+					'value' => [
+						'type' => 'enum',
+						'values' => ['yes', 'no'],
+						'default' => 'no',
+					],
+				], self::generateTableColumns()))
+				->keys(array_merge([
+					'id' => 'primary',
+					'entry_id' => 'unique',
+					'value' => 'key',
+				], self::generateTableKeys()))
+				->execute()
+				->success();
 		}
 
 		public function canToggle()
@@ -84,7 +91,7 @@
 		public function toggleFieldData(array $data, $newState, $entry_id = null)
 		{
 			list($lc, $value) = explode(':', $newState, 2);
-			
+
 			if ($lc == 'all') {
 				foreach ($data as $key => $d) {
 					$data[$key] = $value;
@@ -277,19 +284,17 @@
 				return false;
 			}
 
-			return Symphony::Database()->query(sprintf("
-				UPDATE
-					`tbl_fields_%s`
-				SET
-					`default_main_lang` = '%s',
-					`required_languages` = '%s'
-				WHERE
-					`field_id` = '%s';",
-				$this->handle(),
-				$this->get('default_main_lang') === 'yes' ? 'yes' : 'no',
-				implode(',', $this->get('required_languages')),
-				$this->get('id')
-			));
+			return Symphony::Database()
+				->update('tbl_fields_' . $this->handle())
+				->set([
+					'default_main_lang' => $this->get('default_main_lang') === 'yes' ? 'yes' : 'no',
+					'required_languages' => implode(',', $this->get('required_languages')),
+				])
+				->where([
+					'field_id' => $this->get('id'),
+				])
+				->execute()
+				->success();
 		}
 
 
@@ -329,7 +334,7 @@
 			$required = in_array('all', $required_languages) || count($langs) == count($required_languages);
 
 			if (!$required) {
-				
+
 				if (empty($required_languages)) {
 					$optional .= __('All languages are optional');
 				} else {
@@ -339,7 +344,7 @@
 							$optional_langs[] = $all_langs[$lang];
 						}
 					}
-					
+
 					foreach ($optional_langs as $idx => $lang) {
 						$optional .= ' ' . __($lang);
 						if ($idx < count($optional_langs) - 2) {
@@ -377,7 +382,7 @@
 
 			$ul = new XMLElement('ul', null, array('class' => 'tabs'));
 			foreach ($langs as $lc) {
-				$li = new XMLElement('li', $all_langs[$lc], array('class' => $lc));
+				$li = new XMLElement('li', $lc, array('class' => $lc));
 				$lc === $main_lang ? $ul->prependChild($li) : $ul->appendChild($li);
 			}
 
@@ -398,7 +403,7 @@
 				else {
 					$value = ($data["value-$lc"] === 'yes' ? 'yes' : 'no');
 				}
-				
+
 				$div = new XMLElement('div', null, array(
 					'class'          => 'tab-panel tab-' . $lc,
 					'data-lang_code' => $lc
@@ -490,7 +495,7 @@
 					"value-$lc"           => (string) $data,
 				));
 
-				// Insert values of default language as default values of the field for compatibility with other extensions 
+				// Insert values of default language as default values of the field for compatibility with other extensions
 				// that watch the values without lang code.
 				if (FLang::getMainLang() == $lc) {
 					$result = array_merge($result, array(
@@ -600,7 +605,7 @@
 			$data['value'] = $data["value-$lc"];
 			return parent::prepareTextValue($data, $entry_id);
 		}
-		
+
 		protected function getLang($data = null)
 		{
 			$required_languages = $this->getRequiredLanguages();
@@ -659,7 +664,7 @@
 			parent::buildDSRetrievalSQL($data, $joins, $multi_where, $andOperation);
 
 			$lc = FLang::getLangCode();
-			
+
 			if ($lc) {
 				$multi_where = str_replace('.value', ".`value-$lc`", $multi_where);
 			}
@@ -678,7 +683,7 @@
 		public function buildSortingSQL(&$joins, &$where, &$sort, $order = 'ASC')
 		{
 			$lc = FLang::getLangCode();
-			
+
 			if (in_array(strtolower($order), array('random', 'rand'))) {
 				$sort = 'ORDER BY RAND()';
 			}
